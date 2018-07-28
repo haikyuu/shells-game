@@ -33,26 +33,33 @@ class Board extends React.Component {
   }
   getPosition = (direction, { x, y, id }) => {
     const { size } = this.props;
-    if (x < 0 || x > SQUARE_SIZE * (size - 1)) {
+
+    if (
+      (direction.indexOf("UP") > -1 && y === 0) ||
+      (direction.indexOf("DOWN") > -1 && y === size - 1) ||
+      (direction.indexOf("LEFT") > -1 && x === 0) ||
+      (direction.indexOf("RIGHT") > -1 && x === size - 1)
+    ) {
       console.error(`Shell ${id} tried to move beyond the board`);
+      return { x, y };
     }
     switch (direction) {
       case "UP":
-        return { x, y: Math.max(0, y - 1) };
+        return { x, y: y - 1 };
       case "DOWN":
-        return { x, y: Math.min(size, y + 1) };
+        return { x, y: y + 1 };
       case "LEFT":
-        return { x: Math.max(0, x - 1), y };
+        return { x: x - 1, y };
       case "RIGHT":
-        return { x: Math.min(size, x + 1), y };
+        return { x: x + 1, y };
       case "UP_RIGHT":
-        return { x: Math.min(size, x + 1), y: Math.max(0, y - 1) };
+        return { x: x + 1, y: y - 1 };
       case "UP_LEFT":
-        return { x: Math.max(0, x - 1), y: Math.max(0, y - 1) };
+        return { x: x - 1, y: y - 1 };
       case "DOWN_LEFT":
-        return { x: Math.max(0, x - 1), y: Math.min(size, y + 1) };
+        return { x: x - 1, y: y + 1 };
       case "DOWN_RIGHT":
-        return { x: Math.min(size, x + 1), y: Math.min(size, y + 1) };
+        return { x: x + 1, y: y + 1 };
       default:
         return { x, y };
     }
