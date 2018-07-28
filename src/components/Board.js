@@ -83,7 +83,10 @@ class Board extends React.Component {
           const top = y * SQUARE_SIZE + 15;
           const left = x * SQUARE_SIZE + 15;
           return (
-            <div key={id} style={{ position: "absolute", top, left }}>
+            <div
+              key={id}
+              style={{ position: "absolute", top, left, transition: "all .3s" }}
+            >
               <Shell
                 squareSize={SQUARE_SIZE}
                 id={id}
