@@ -1,14 +1,24 @@
 import React from "react";
 import PropTypes from "prop-types";
 import Shell from "./Shell";
-
+import { getRandomIntInclusive, waitFor, getRandomPair } from "../utils";
 const SQUARE_SIZE = 130;
+const DIRECTIONS = [
+  "UP",
+  "DOWN",
+  "LEFT",
+  "RIGHT",
+  "UP_LEFT",
+  "UP_RIGHT",
+  "DOWN_LEFT",
+  "DOWN_RIGHT"
+];
 class Board extends React.Component {
   static propTypes = {
     size: PropTypes.number.isRequired,
     shells: PropTypes.arrayOf(
       PropTypes.shape({
-        id: PropTypes.string.isRequired,
+        id: PropTypes.number.isRequired,
         x: PropTypes.number.isRequired,
         y: PropTypes.number.isRequired,
         isOpen: PropTypes.bool.isRequired,
@@ -16,6 +26,7 @@ class Board extends React.Component {
       })
     ).isRequired
   };
+
   constructor(props) {
     super(props);
     const shells = props.shells.reduce(
@@ -41,7 +52,7 @@ class Board extends React.Component {
       (direction.indexOf("RIGHT") > -1 && x === size - 1)
     ) {
       console.error(`Shell ${id} tried to move beyond the board`);
-      return { x, y };
+      return { x, y, error: true };
     }
     switch (direction) {
       case "UP":
@@ -63,6 +74,127 @@ class Board extends React.Component {
       default:
         return { x, y };
     }
+  };
+  getRandomDirection = () => {
+    const rand = getRandomIntInclusive(0, DIRECTIONS.length - 1);
+
+    return DIRECTIONS[rand];
+  };
+  toggleShellsOpen = () => {
+    this.setState(({ shells, shellsMap }) => ({
+      shells: shellsMap.reduce(
+        (acc, id) => ({
+          ...acc,
+          [id]: { ...shells[id], isOpen: !shells[id].isOpen }
+        }),
+        {}
+      )
+    }));
+  };
+  shuffleShells = async () => {
+    const { movesPerShuffle, timeBetweenMoves } = this.props;
+
+    let moves = [];
+    await Array.from({ length: movesPerShuffle }).reduce(
+      async previousMovePromise => {
+        await previousMovePromise;
+        const { shellsMap, shells } = this.state;
+        const { i, j } = getRandomPair(shellsMap);
+        const moves = this.exchangeShells(
+          shells[shellsMap[i]],
+          shells[shellsMap[j]]
+        );
+        return await this.executeMoves(moves);
+      },
+      Promise.resolve()
+    );
+  };
+
+  getShellInCenter = shells => {
+    const shellsToReturn = shells.filter(({ x, y }) => {
+      return x === 1 && y === 2;
+    });
+    return shellsToReturn.length > 0 ? shellsToReturn[0] : null;
+  };
+  getShellInRight = shells => {
+    const shellsToReturn = shells.filter(({ x, y }) => {
+      return x === 2 && y === 2;
+    });
+    return shellsToReturn.length > 0 ? shellsToReturn[0] : null;
+  };
+  getShellInLeft = shells => {
+    const shellsToReturn = shells.filter(({ x, y }) => {
+      return x === 0 && y === 2;
+    });
+    return shellsToReturn.length > 0 ? shellsToReturn[0] : null;
+  };
+  exchangeShells(shell1, shell2) {
+    // the shells are in one of the positions "left", "center" or "right"
+    const shellInCenter = this.getShellInCenter([shell1, shell2]);
+    const shellInLeft = this.getShellInLeft([shell1, shell2]);
+    const shellInRight = this.getShellInRight([shell1, shell2]);
+    const moves = [];
+    if (shellInCenter) {
+      //next to each other
+      // move the one in the center down
+      moves.push({ id: shellInCenter.id, direction: "DOWN" });
+      // x   x
+      //   o
+      if (shellInLeft) {
+        // o   x
+        //   o
+        // move the left one right
+        moves.push({ id: shellInLeft.id, direction: "RIGHT" });
+
+        //   o  x
+        //   o
+
+        // move the center one up left
+        moves.push({ id: shellInCenter.id, direction: "UP_LEFT" });
+        // o o x
+      } else {
+        // x   o
+        //   o
+        // move the right one left
+        moves.push({ id: shellInRight.id, direction: "LEFT" });
+
+        // x o
+        //   o
+        // move the center one up right
+        moves.push({ id: shellInCenter.id, direction: "UP_RIGHT" });
+        // x o o
+      }
+    } else {
+      // one is left and one is right
+      // o x o
+      // move the left one up right
+      moves.push({ id: shellInLeft.id, direction: "UP_RIGHT" });
+      //   o
+      //   x o
+
+      // move the right one down left
+      moves.push({ id: shellInRight.id, direction: "DOWN_LEFT" });
+      //   o
+      //   x
+      //   o
+
+      // move the left one down right
+      moves.push({ id: shellInLeft.id, direction: "DOWN_RIGHT" });
+      //   o
+      // o x
+
+      // move the right one up left
+      moves.push({ id: shellInRight.id, direction: "UP_LEFT" });
+      // o x o
+    }
+    return moves;
+  }
+  executeMoves = async moves => {
+    await moves.reduce(async (previousMovePromise, moves) => {
+      await previousMovePromise;
+      this.move(moves.direction, moves.id);
+      return waitFor(200);
+    }, Promise.resolve());
   };
   move = (direction, id) => {
     const { shells } = this.state;
@@ -92,7 +224,12 @@ class Board extends React.Component {
           return (
             <div
               key={id}
-              style={{ position: "absolute", top, left, transition: "all .3s" }}
+              style={{
+                position: "absolute",
+                top,
+                left,
+                transition: "all .1s"
+              }}
             >
               <Shell
                 squareSize={SQUARE_SIZE}
@@ -103,22 +240,17 @@ class Board extends React.Component {
             </div>
           );
         })}
-        <button onClick={() => this.move("UP", shellsMap[0])}>UP</button>
-        <button onClick={() => this.move("DOWN", shellsMap[0])}>DOWN</button>
-        <button onClick={() => this.move("LEFT", shellsMap[0])}>LEFT</button>
-        <button onClick={() => this.move("RIGHT", shellsMap[0])}>RIGHT</button>
-        <button onClick={() => this.move("UP_LEFT", shellsMap[0])}>
-          UP_LEFT
-        </button>
-        <button onClick={() => this.move("UP_RIGHT", shellsMap[0])}>
-          UP_RIGHT
-        </button>
-        <button onClick={() => this.move("DOWN_LEFT", shellsMap[0])}>
-          DOWN_LEFT
-        </button>
-        <button onClick={() => this.move("DOWN_RIGHT", shellsMap[0])}>
-          DOWN_RIGHT
-        </button>
+        {DIRECTIONS.map(direction => (
+          <button
+            key={direction}
+            onClick={() => this.move(direction, shellsMap[0])}
+          >
+            {direction}
+          </button>
+        ))}
+        <button onClick={this.shuffleShells}>SHUFFLE</button>
+        <button onClick={this.getRandomDirection}>getRandomDirection</button>
+        <button onClick={this.toggleShellsOpen}>toggle shells open</button>
       </div>
     );
   }

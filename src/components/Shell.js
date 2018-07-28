@@ -24,7 +24,7 @@ const Shell = ({ id, isOpen, hasBall, squareSize }) => {
   );
 };
 Shell.propTypes = {
-  id: PropTypes.string.isRequired,
+  id: PropTypes.number.isRequired,
   squareSize: PropTypes.number.isRequired,
   isOpen: PropTypes.bool.isRequired,
   hasBall: PropTypes.bool.isRequired
