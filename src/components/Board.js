@@ -39,7 +39,8 @@ class Board extends React.Component {
     const shellsMap = props.shells.map(({ id }) => id);
     this.state = {
       shells,
-      shellsMap
+      shellsMap,
+      isShuffling: false
     };
   }
   getPosition = (direction, { x, y, id }) => {
@@ -80,21 +81,24 @@ class Board extends React.Component {
 
     return DIRECTIONS[rand];
   };
-  toggleShellsOpen = () => {
+  toggleShellsOpen = isOpen => {
     this.setState(({ shells, shellsMap }) => ({
       shells: shellsMap.reduce(
         (acc, id) => ({
           ...acc,
-          [id]: { ...shells[id], isOpen: !shells[id].isOpen }
+          [id]: { ...shells[id], isOpen: isOpen }
         }),
         {}
       )
     }));
   };
-  shuffleShells = async () => {
-    const { movesPerShuffle, timeBetweenMoves } = this.props;
+  openShells = () => this.toggleShellsOpen(true);
+  closeShells = () => this.toggleShellsOpen(false);
 
-    let moves = [];
+  shuffleShells = async () => {
+    const { movesPerShuffle } = this.props;
+    this.setState({ isShuffling: true });
+    this.closeShells();
     await Array.from({ length: movesPerShuffle }).reduce(
       async previousMovePromise => {
         await previousMovePromise;
@@ -108,6 +112,7 @@ class Board extends React.Component {
       },
       Promise.resolve()
     );
+    this.setState({ isShuffling: false });
   };
 
   getShellInCenter = shells => {
@@ -190,10 +195,11 @@ class Board extends React.Component {
     return moves;
   }
   executeMoves = async moves => {
+    const { timeBetweenMoves } = this.props;
     await moves.reduce(async (previousMovePromise, moves) => {
       await previousMovePromise;
       this.move(moves.direction, moves.id);
-      return waitFor(200);
+      return waitFor(timeBetweenMoves * 1000);
     }, Promise.resolve());
   };
   move = (direction, id) => {
@@ -210,9 +216,14 @@ class Board extends React.Component {
       }
     });
   };
+  onShellClick = async isRightShell => {
+    this.openShells();
+    await waitFor(1);
+    alert(isRightShell ? "🎉 You won" : "🙃 No luck this time");
+  };
   render() {
     const { size } = this.props;
-    const { shells, shellsMap } = this.state;
+    const { shells, shellsMap, isShuffling } = this.state;
     const width = size * SQUARE_SIZE;
     const height = size * SQUARE_SIZE;
     return (
@@ -222,7 +233,10 @@ class Board extends React.Component {
           const top = y * SQUARE_SIZE + 15;
           const left = x * SQUARE_SIZE + 15;
           return (
-            <div
+            <button
+              disabled={isShuffling}
+              onClick={() => this.onShellClick(hasBall)}
+              className="button-reset"
               key={id}
               style={{
                 position: "absolute",
@@ -237,20 +251,12 @@ class Board extends React.Component {
                 hasBall={hasBall}
                 isOpen={isOpen}
               />
-            </div>
+            </button>
           );
         })}
-        {DIRECTIONS.map(direction => (
-          <button
-            key={direction}
-            onClick={() => this.move(direction, shellsMap[0])}
-          >
-            {direction}
-          </button>
-        ))}
-        <button onClick={this.shuffleShells}>SHUFFLE</button>
-        <button onClick={this.getRandomDirection}>getRandomDirection</button>
-        <button onClick={this.toggleShellsOpen}>toggle shells open</button>
+        <button disabled={isShuffling} onClick={this.shuffleShells}>
+          SHUFFLE
+        </button>
       </div>
     );
   }
